@@ -10,6 +10,12 @@ export type FractionAttemptKind =
   | "needs-common-denominator"
   | "invalid";
 
+export type SimplificationAttemptKind =
+  | "correct"
+  | "correct-not-simplified"
+  | "needs-simplifying"
+  | "invalid";
+
 function assertInteger(value: number, name: string): void {
   if (!Number.isInteger(value)) {
     throw new RangeError(`${name} must be an integer`);
@@ -77,6 +83,16 @@ export function formatFraction(fraction: Fraction): string {
   return `${simplified.numerator}/${simplified.denominator}`;
 }
 
+export function formatFractionAsWritten(fraction: Fraction): string {
+  assertValidFraction(fraction);
+
+  if (fraction.denominator === 1) {
+    return String(fraction.numerator);
+  }
+
+  return `${fraction.numerator}/${fraction.denominator}`;
+}
+
 export function areFractionsEquivalent(left: Fraction, right: Fraction): boolean {
   const simplifiedLeft = simplifyFraction(left);
   const simplifiedRight = simplifyFraction(right);
@@ -138,6 +154,29 @@ export function analyzeFractionAttempt(
     submittedFraction.numerator !== simplifiedSubmission.numerator ||
     submittedFraction.denominator !== simplifiedSubmission.denominator
   ) {
+    return "correct-not-simplified";
+  }
+
+  return "correct";
+}
+
+export function analyzeSimplificationAttempt(
+  input: string,
+  fraction: Fraction,
+): SimplificationAttemptKind {
+  const submittedFraction = parseFractionInput(input);
+
+  if (!submittedFraction) {
+    return "invalid";
+  }
+
+  const simplifiedFraction = simplifyFraction(fraction);
+
+  if (!areFractionsEquivalent(submittedFraction, simplifiedFraction)) {
+    return "needs-simplifying";
+  }
+
+  if (!areFractionsEquivalent(submittedFraction, simplifyFraction(submittedFraction))) {
     return "correct-not-simplified";
   }
 
