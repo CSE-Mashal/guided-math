@@ -53,9 +53,13 @@ export default function Home() {
   const [lessonMode, setLessonMode] = useState<LessonMode>("addition");
   const [problemIndex, setProblemIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [examplesUsed, setExamplesUsed] = useState(0);
   const [answer, setAnswer] = useState("");
   const [message, setMessage] = useState(() => getProblemHint(fractionProblems[0]));
   const [isCorrect, setIsCorrect] = useState(false);
+  const [isLessonComplete, setIsLessonComplete] = useState(false);
   const [showExample, setShowExample] = useState(false);
 
   const currentAdditionProblem = fractionProblems[problemIndex];
@@ -67,7 +71,18 @@ export default function Home() {
       ? simplifyingFractionProblems.length
       : equivalentFractionProblems.length;
 
+  function markCurrentProblemCorrect() {
+    setCompletedCount(problemIndex + 1);
+    setIsCorrect(true);
+
+    if (problemIndex === activeProblemCount - 1) {
+      setIsLessonComplete(true);
+    }
+  }
+
   function checkStep() {
+    setAttemptCount((count) => count + 1);
+
     if (lessonMode === "addition") {
       const attemptKind = analyzeFractionAttempt(
         answer,
@@ -78,22 +93,25 @@ export default function Home() {
       switch (attemptKind) {
         case "correct":
           setMessage("Correct! You found the sum using a common denominator.");
-          setCompletedCount(problemIndex + 1);
-          setIsCorrect(true);
+          markCurrentProblemCorrect();
           break;
         case "correct-not-simplified":
+          setHintsUsed((count) => count + 1);
           setMessage("That is equivalent. Now simplify the fraction by dividing both parts by their greatest common factor.");
           setIsCorrect(false);
           break;
         case "added-denominators":
+          setHintsUsed((count) => count + 1);
           setMessage("It looks like the denominators were added. Find a common denominator, then add only the numerators.");
           setIsCorrect(false);
           break;
         case "invalid":
+          setHintsUsed((count) => count + 1);
           setMessage("Enter a fraction in numerator/denominator form, then start by matching the denominators.");
           setIsCorrect(false);
           break;
         case "needs-common-denominator":
+          setHintsUsed((count) => count + 1);
           setMessage("Not yet. Rewrite both fractions with a common denominator, then add only the numerators.");
           setIsCorrect(false);
           break;
@@ -111,18 +129,20 @@ export default function Home() {
       switch (attemptKind) {
         case "correct":
           setMessage("Correct! You simplified the fraction completely.");
-          setCompletedCount(problemIndex + 1);
-          setIsCorrect(true);
+          markCurrentProblemCorrect();
           break;
         case "correct-not-simplified":
+          setHintsUsed((count) => count + 1);
           setMessage("That is equivalent. Keep looking for a common factor greater than 1.");
           setIsCorrect(false);
           break;
         case "invalid":
+          setHintsUsed((count) => count + 1);
           setMessage("Enter a fraction in numerator/denominator form, then look for a common factor.");
           setIsCorrect(false);
           break;
         case "needs-simplifying":
+          setHintsUsed((count) => count + 1);
           setMessage("Not yet. Divide the numerator and denominator by the same common factor.");
           setIsCorrect(false);
           break;
@@ -139,18 +159,20 @@ export default function Home() {
     switch (attemptKind) {
       case "correct":
         setMessage("Correct! You made an equivalent fraction.");
-        setCompletedCount(problemIndex + 1);
-        setIsCorrect(true);
+        markCurrentProblemCorrect();
         break;
       case "same-as-original":
+        setHintsUsed((count) => count + 1);
         setMessage("Use a different fraction. Multiply both the numerator and denominator by the same number.");
         setIsCorrect(false);
         break;
       case "invalid":
+        setHintsUsed((count) => count + 1);
         setMessage("Enter a fraction in numerator/denominator form, then multiply both parts by the same number.");
         setIsCorrect(false);
         break;
       case "not-equivalent":
+        setHintsUsed((count) => count + 1);
         setMessage("Not yet. Multiply both the numerator and denominator by the same number to keep the value equivalent.");
         setIsCorrect(false);
         break;
@@ -166,6 +188,7 @@ export default function Home() {
 
     setProblemIndex(nextProblemIndex);
     setAnswer("");
+    setShowExample(false);
     setMessage(lessonMode === "addition"
       ? getProblemHint(fractionProblems[nextProblemIndex])
       : lessonMode === "simplifying"
@@ -178,14 +201,30 @@ export default function Home() {
     setLessonMode(nextLessonMode);
     setProblemIndex(0);
     setCompletedCount(0);
+    setAttemptCount(0);
+    setHintsUsed(0);
+    setExamplesUsed(0);
     setAnswer("");
     setIsCorrect(false);
+    setIsLessonComplete(false);
     setShowExample(false);
     setMessage(nextLessonMode === "addition"
       ? getProblemHint(fractionProblems[0])
       : nextLessonMode === "simplifying"
         ? getSimplificationHint(simplifyingFractionProblems[0].fraction)
         : getEquivalentHint(equivalentFractionProblems[0].fraction));
+  }
+
+  function restartLesson() {
+    selectLesson(lessonMode);
+  }
+
+  function toggleExample() {
+    if (!showExample) {
+      setExamplesUsed((count) => count + 1);
+    }
+
+    setShowExample((isVisible) => !isVisible);
   }
 
   return (
@@ -203,14 +242,17 @@ export default function Home() {
             <p className="mt-3 text-lg text-[#65708a]">{lessonMode === "addition" ? "We'll work through one step at a time." : lessonMode === "simplifying" ? "We'll find a common factor one step at a time." : "We'll multiply both parts by the same number one step at a time."}</p>
             <div className="my-9 rounded-3xl bg-[#eef3ff] px-8 py-9 text-center text-4xl font-bold text-[#17233f]">{lessonMode === "addition" ? <>{formatFraction(currentAdditionProblem.left)}&nbsp; + &nbsp;{formatFraction(currentAdditionProblem.right)}</> : lessonMode === "simplifying" ? formatFractionAsWritten(currentSimplificationProblem.fraction) : <>{formatFractionAsWritten(currentEquivalentProblem.fraction)} = ?</>}</div>
 
+            {!isLessonComplete && <>
             <div className="rounded-3xl border border-[#dce3f0] p-5">
               <div className="flex gap-3"><span className="mt-0.5 text-[#e5a314]"><Lightbulb size={23}/></span><div><p className="font-bold">Your next step</p><p className="mt-1 leading-6 text-[#52607a]">{message}</p></div></div>
               <label className="mt-5 block text-sm font-semibold" htmlFor="step">Show what you would do next</label>
               <div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="step" value={answer} onChange={(e) => setAnswer(e.target.value)} onKeyDown={(e) => e.key === "Enter" && checkStep()} placeholder="Example: numerator/denominator" className="min-h-12 flex-1 rounded-xl border border-[#cbd5e1] px-4 text-base outline-none focus:ring-2 focus:ring-[#315bd6]"/><button onClick={isCorrect && problemIndex < activeProblemCount - 1 ? goToNextProblem : checkStep} className="min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">{isCorrect && problemIndex < activeProblemCount - 1 ? "Next problem" : "Check step"} <ArrowRight className="ml-1 inline" size={17}/></button></div>
             </div>
 
-            <button onClick={() => setShowExample(!showExample)} className="mt-5 flex items-center gap-2 text-sm font-bold text-[#315bd6]"><BookOpen size={18}/>{showExample ? "Hide similar example" : "Show a similar example"}</button>
+            <button onClick={toggleExample} className="mt-5 flex items-center gap-2 text-sm font-bold text-[#315bd6]"><BookOpen size={18}/>{showExample ? "Hide similar example" : "Show a similar example"}</button>
             {showExample && <div className="mt-3 rounded-2xl bg-[#fff7e5] p-5 text-[#4a3510]">{lessonMode === "addition" ? <><p className="font-bold">Similar example: 1/3 + 1/6</p><p className="mt-2">Change 1/3 to 2/6. Now you can add 2/6 + 1/6.</p></> : lessonMode === "simplifying" ? <><p className="font-bold">Similar example: 18/24</p><p className="mt-2">Find a common factor, then divide the numerator and denominator by it.</p></> : <><p className="font-bold">Similar example: 1/3</p><p className="mt-2">Multiply the numerator and denominator by the same number.</p></>}</div>}
+            </>}
+            {isLessonComplete && <div className="rounded-3xl border border-[#dce3f0] bg-[#f8fafc] p-6"><p className="text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Lesson complete</p><h2 className="mt-2 text-2xl font-bold">Nice work finishing this lesson.</h2><div className="mt-6 grid gap-4 sm:grid-cols-2"><div><p className="text-sm text-[#65708a]">Accuracy</p><p className="mt-1 text-2xl font-bold">{Math.round((completedCount / attemptCount) * 100)}%</p></div><div><p className="text-sm text-[#65708a]">Total attempts</p><p className="mt-1 text-2xl font-bold">{attemptCount}</p></div><div><p className="text-sm text-[#65708a]">Hints used</p><p className="mt-1 text-2xl font-bold">{hintsUsed}</p></div><div><p className="text-sm text-[#65708a]">Examples used</p><p className="mt-1 text-2xl font-bold">{examplesUsed}</p></div></div><button onClick={restartLesson} className="mt-6 min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">Restart lesson</button></div>}
           </section>
 
           <aside className="space-y-5">
