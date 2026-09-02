@@ -22,6 +22,7 @@
 import { useState } from "react";
 import { ArrowRight, BookOpen, Lightbulb, Sparkles } from "lucide-react";
 import {
+  analyzeEquivalentFractionAttempt,
   analyzeFractionAttempt,
   analyzeSimplificationAttempt,
   formatFraction,
@@ -29,11 +30,12 @@ import {
   type Fraction,
 } from "@/lib/fractions";
 import {
+  equivalentFractionProblems,
   fractionProblems,
   simplifyingFractionProblems,
 } from "@/lib/fraction-problems";
 
-type LessonMode = "addition" | "simplifying";
+type LessonMode = "addition" | "simplifying" | "equivalent";
 
 function getProblemHint(problem: { left: Fraction; right: Fraction }): string {
   return `Start by finding a denominator that ${problem.left.denominator} and ${problem.right.denominator} can both use.`;
@@ -41,6 +43,10 @@ function getProblemHint(problem: { left: Fraction; right: Fraction }): string {
 
 function getSimplificationHint(fraction: Fraction): string {
   return `Look for a number greater than 1 that divides both ${fraction.numerator} and ${fraction.denominator}.`;
+}
+
+function getEquivalentHint(fraction: Fraction): string {
+  return `Multiply both the numerator and denominator by the same number, such as 2 or 3.`;
 }
 
 export default function Home() {
@@ -54,9 +60,12 @@ export default function Home() {
 
   const currentAdditionProblem = fractionProblems[problemIndex];
   const currentSimplificationProblem = simplifyingFractionProblems[problemIndex];
+  const currentEquivalentProblem = equivalentFractionProblems[problemIndex];
   const activeProblemCount = lessonMode === "addition"
     ? fractionProblems.length
-    : simplifyingFractionProblems.length;
+    : lessonMode === "simplifying"
+      ? simplifyingFractionProblems.length
+      : equivalentFractionProblems.length;
 
   function checkStep() {
     if (lessonMode === "addition") {
@@ -93,27 +102,56 @@ export default function Home() {
       return;
     }
 
-    const attemptKind = analyzeSimplificationAttempt(
+    if (lessonMode === "simplifying") {
+      const attemptKind = analyzeSimplificationAttempt(
+        answer,
+        currentSimplificationProblem.fraction,
+      );
+
+      switch (attemptKind) {
+        case "correct":
+          setMessage("Correct! You simplified the fraction completely.");
+          setCompletedCount(problemIndex + 1);
+          setIsCorrect(true);
+          break;
+        case "correct-not-simplified":
+          setMessage("That is equivalent. Keep looking for a common factor greater than 1.");
+          setIsCorrect(false);
+          break;
+        case "invalid":
+          setMessage("Enter a fraction in numerator/denominator form, then look for a common factor.");
+          setIsCorrect(false);
+          break;
+        case "needs-simplifying":
+          setMessage("Not yet. Divide the numerator and denominator by the same common factor.");
+          setIsCorrect(false);
+          break;
+      }
+
+      return;
+    }
+
+    const attemptKind = analyzeEquivalentFractionAttempt(
       answer,
-      currentSimplificationProblem.fraction,
+      currentEquivalentProblem.fraction,
     );
 
     switch (attemptKind) {
       case "correct":
-        setMessage("Correct! You simplified the fraction completely.");
+        setMessage("Correct! You made an equivalent fraction.");
         setCompletedCount(problemIndex + 1);
         setIsCorrect(true);
         break;
-      case "correct-not-simplified":
-        setMessage("That is equivalent. Keep looking for a common factor greater than 1.");
+      case "same-as-original":
+        setMessage("Use a different fraction. Multiply both the numerator and denominator by the same number.");
         setIsCorrect(false);
         break;
       case "invalid":
-        setMessage("Enter a fraction in numerator/denominator form, then look for a common factor.");
+        setMessage("Enter a fraction in numerator/denominator form, then multiply both parts by the same number.");
         setIsCorrect(false);
         break;
-      case "needs-simplifying":
-        setMessage("Not yet. Divide the numerator and denominator by the same common factor.");
+      case "not-equivalent":
+        setMessage("Not yet. Multiply both the numerator and denominator by the same number to keep the value equivalent.");
         setIsCorrect(false);
         break;
     }
@@ -130,7 +168,9 @@ export default function Home() {
     setAnswer("");
     setMessage(lessonMode === "addition"
       ? getProblemHint(fractionProblems[nextProblemIndex])
-      : getSimplificationHint(simplifyingFractionProblems[nextProblemIndex].fraction));
+      : lessonMode === "simplifying"
+        ? getSimplificationHint(simplifyingFractionProblems[nextProblemIndex].fraction)
+        : getEquivalentHint(equivalentFractionProblems[nextProblemIndex].fraction));
     setIsCorrect(false);
   }
 
@@ -143,7 +183,9 @@ export default function Home() {
     setShowExample(false);
     setMessage(nextLessonMode === "addition"
       ? getProblemHint(fractionProblems[0])
-      : getSimplificationHint(simplifyingFractionProblems[0].fraction));
+      : nextLessonMode === "simplifying"
+        ? getSimplificationHint(simplifyingFractionProblems[0].fraction)
+        : getEquivalentHint(equivalentFractionProblems[0].fraction));
   }
 
   return (
@@ -151,15 +193,15 @@ export default function Home() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3 font-bold"><span className="grid size-10 place-items-center rounded-2xl bg-[#315bd6] text-white"><Sparkles size={20}/></span><span>Math Guide</span></div>
-          <div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button></div>
+          <div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button><button onClick={() => selectLesson("equivalent")} aria-pressed={lessonMode === "equivalent"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equivalent" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equivalent fractions</button></div>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10">
             <p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Practice problem</p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{lessonMode === "addition" ? "Let's add fractions." : "Let's simplify fractions."}</h1>
-            <p className="mt-3 text-lg text-[#65708a]">{lessonMode === "addition" ? "We'll work through one step at a time." : "We'll find a common factor one step at a time."}</p>
-            <div className="my-9 rounded-3xl bg-[#eef3ff] px-8 py-9 text-center text-4xl font-bold text-[#17233f]">{lessonMode === "addition" ? <>{formatFraction(currentAdditionProblem.left)}&nbsp; + &nbsp;{formatFraction(currentAdditionProblem.right)}</> : formatFractionAsWritten(currentSimplificationProblem.fraction)}</div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{lessonMode === "addition" ? "Let's add fractions." : lessonMode === "simplifying" ? "Let's simplify fractions." : "Let's make equivalent fractions."}</h1>
+            <p className="mt-3 text-lg text-[#65708a]">{lessonMode === "addition" ? "We'll work through one step at a time." : lessonMode === "simplifying" ? "We'll find a common factor one step at a time." : "We'll multiply both parts by the same number one step at a time."}</p>
+            <div className="my-9 rounded-3xl bg-[#eef3ff] px-8 py-9 text-center text-4xl font-bold text-[#17233f]">{lessonMode === "addition" ? <>{formatFraction(currentAdditionProblem.left)}&nbsp; + &nbsp;{formatFraction(currentAdditionProblem.right)}</> : lessonMode === "simplifying" ? formatFractionAsWritten(currentSimplificationProblem.fraction) : <>{formatFractionAsWritten(currentEquivalentProblem.fraction)} = ?</>}</div>
 
             <div className="rounded-3xl border border-[#dce3f0] p-5">
               <div className="flex gap-3"><span className="mt-0.5 text-[#e5a314]"><Lightbulb size={23}/></span><div><p className="font-bold">Your next step</p><p className="mt-1 leading-6 text-[#52607a]">{message}</p></div></div>
@@ -168,12 +210,12 @@ export default function Home() {
             </div>
 
             <button onClick={() => setShowExample(!showExample)} className="mt-5 flex items-center gap-2 text-sm font-bold text-[#315bd6]"><BookOpen size={18}/>{showExample ? "Hide similar example" : "Show a similar example"}</button>
-            {showExample && <div className="mt-3 rounded-2xl bg-[#fff7e5] p-5 text-[#4a3510]">{lessonMode === "addition" ? <><p className="font-bold">Similar example: 1/3 + 1/6</p><p className="mt-2">Change 1/3 to 2/6. Now you can add 2/6 + 1/6.</p></> : <><p className="font-bold">Similar example: 18/24</p><p className="mt-2">Find a common factor, then divide the numerator and denominator by it.</p></>}</div>}
+            {showExample && <div className="mt-3 rounded-2xl bg-[#fff7e5] p-5 text-[#4a3510]">{lessonMode === "addition" ? <><p className="font-bold">Similar example: 1/3 + 1/6</p><p className="mt-2">Change 1/3 to 2/6. Now you can add 2/6 + 1/6.</p></> : lessonMode === "simplifying" ? <><p className="font-bold">Similar example: 18/24</p><p className="mt-2">Find a common factor, then divide the numerator and denominator by it.</p></> : <><p className="font-bold">Similar example: 1/3</p><p className="mt-2">Multiply the numerator and denominator by the same number.</p></>}</div>}
           </section>
 
           <aside className="space-y-5">
             <section className="rounded-[2rem] bg-[#17233f] p-6 text-white"><p className="text-sm font-bold uppercase tracking-[.15em] text-[#aebfff]">Learning rule</p><h2 className="mt-3 text-2xl font-bold">We help you think, not copy.</h2><p className="mt-3 leading-6 text-[#d8e0ff]">Math Guide gives hints, examples, and feedback before showing a solution.</p></section>
-            <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6"><p className="font-bold">Today&apos;s progress</p><div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e7ecf5]"><div className="h-full rounded-full bg-[#59b899] transition-all" style={{ width: `${(completedCount / activeProblemCount) * 100}%` }}/></div><p className="mt-3 text-sm text-[#65708a]">{completedCount} of {activeProblemCount} completed</p><div className="mt-6 border-t border-[#e6eaf2] pt-5"><p className="text-sm font-bold">Next up</p><p className="mt-1 text-sm text-[#65708a]">{lessonMode === "addition" ? "Equivalent fractions" : "Adding fractions"}</p></div></section>
+            <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6"><p className="font-bold">Today&apos;s progress</p><div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e7ecf5]"><div className="h-full rounded-full bg-[#59b899] transition-all" style={{ width: `${(completedCount / activeProblemCount) * 100}%` }}/></div><p className="mt-3 text-sm text-[#65708a]">{completedCount} of {activeProblemCount} completed</p><div className="mt-6 border-t border-[#e6eaf2] pt-5"><p className="text-sm font-bold">Next up</p><p className="mt-1 text-sm text-[#65708a]">{lessonMode === "addition" ? "Equivalent fractions" : lessonMode === "simplifying" ? "Adding fractions" : "Simplifying fractions"}</p></div></section>
           </aside>
         </div>
       </div>

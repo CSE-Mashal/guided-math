@@ -16,6 +16,12 @@ export type SimplificationAttemptKind =
   | "needs-simplifying"
   | "invalid";
 
+export type EquivalentFractionAttemptKind =
+  | "correct"
+  | "same-as-original"
+  | "not-equivalent"
+  | "invalid";
+
 function assertInteger(value: number, name: string): void {
   if (!Number.isInteger(value)) {
     throw new RangeError(`${name} must be an integer`);
@@ -181,4 +187,26 @@ export function analyzeSimplificationAttempt(
   }
 
   return "correct";
+}
+
+export function analyzeEquivalentFractionAttempt(
+  input: string,
+  original: Fraction,
+): EquivalentFractionAttemptKind {
+  const submittedFraction = parseFractionInput(input);
+
+  if (!submittedFraction) {
+    return "invalid";
+  }
+
+  if (
+    submittedFraction.numerator === original.numerator &&
+    submittedFraction.denominator === original.denominator
+  ) {
+    return "same-as-original";
+  }
+
+  return areFractionsEquivalent(submittedFraction, original)
+    ? "correct"
+    : "not-equivalent";
 }
