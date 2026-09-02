@@ -19,7 +19,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, BookOpen, Lightbulb, Sparkles } from "lucide-react";
 import {
   analyzeEquivalentFractionAttempt,
@@ -42,6 +42,11 @@ import {
 } from "@/lib/percentages";
 import { percentageProblems } from "@/lib/percentage-problems";
 import { equationProblems } from "@/lib/equation-problems";
+import {
+  analyzeCustomQuestionAnswer,
+  parseCustomQuestion,
+  type CustomQuestion,
+} from "@/lib/custom-question";
 import {
   loadCompletedLessons,
   saveCompletedLesson,
@@ -103,7 +108,11 @@ function getLessonLabel(lessonType: string): string {
 }
 
 export default function Home() {
-  const [view, setView] = useState<"lesson" | "progress">("lesson");
+  const [view, setView] = useState<"lesson" | "progress" | "custom">("lesson");
+    const [customQuestionInput, setCustomQuestionInput] = useState("");
+    const [customQuestion, setCustomQuestion] = useState<CustomQuestion | null>(null);
+    const [customAnswer, setCustomAnswer] = useState("");
+    const [customMessage, setCustomMessage] = useState<ReactNode>("Try a fraction, percentage, or one-step equation.");
   const [lessonMode, setLessonMode] = useState<LessonMode>("addition");
   const [problemIndex, setProblemIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
@@ -361,15 +370,73 @@ export default function Home() {
     setShowExample((isVisible) => !isVisible);
   }
 
+  function getCustomQuestionHint(question: CustomQuestion): string {
+    if (question.topic === "fraction-addition") {
+      return getProblemHint(question);
+    }
+
+    if (question.topic === "percentage") {
+      return getPercentageHint(question.problem.percent);
+    }
+
+    return getEquationHint(question.problem.operation);
+  }
+
+  function submitCustomQuestion() {
+    const result = parseCustomQuestion(customQuestionInput);
+
+    if (result.status === "unsupported") {
+      setCustomQuestion(null);
+      setCustomMessage(result.message);
+      setCustomAnswer("");
+      return;
+    }
+
+    setCustomQuestion(result.question);
+    setCustomAnswer("");
+    setCustomMessage(getCustomQuestionHint(result.question));
+  }
+
+  function checkCustomAnswer() {
+    if (!customQuestion) {
+      return;
+    }
+
+    const attemptKind = analyzeCustomQuestionAnswer(customAnswer, customQuestion);
+
+    if (attemptKind === "correct") {
+      setCustomMessage(<><span className="block">Correct! You worked through your own question.</span><button onClick={selectCustomQuestion} className="mt-4 rounded-xl bg-[#315bd6] px-5 py-3 font-bold text-white transition hover:bg-[#244bbd]">Try another question</button></>);
+      setCustomQuestion(null);
+    } else if (attemptKind === "invalid-answer") {
+      setCustomMessage("Enter a numeric answer, then use the hint to choose the next step.");
+    } else if (attemptKind === "correct-not-simplified") {
+      setCustomMessage("That is equivalent. Simplify your fraction before submitting it.");
+    } else if (customQuestion.topic === "fraction-addition") {
+      setCustomMessage("Not yet. Rewrite both fractions with a common denominator, then add only the numerators.");
+    } else if (customQuestion.topic === "percentage") {
+      setCustomMessage("Not yet. Convert the percent to a decimal or fraction before multiplying by the number.");
+    } else {
+      setCustomMessage(`Not yet. ${getEquationHint(customQuestion.problem.operation)}`);
+    }
+  }
+
+  function selectCustomQuestion() {
+    setView("custom");
+    setCustomQuestion(null);
+    setCustomQuestionInput("");
+    setCustomAnswer("");
+    setCustomMessage("Try a fraction, percentage, or one-step equation.");
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e8efff,_transparent_32%),#f6f8fc] px-5 py-7 text-[#17233f] sm:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3 font-bold"><span className="grid size-10 place-items-center rounded-2xl bg-[#315bd6] text-white"><Sparkles size={20}/></span><span>Math Guide</span></div>
-            <div className="flex items-center gap-2"><div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button><button onClick={() => selectLesson("equivalent")} aria-pressed={lessonMode === "equivalent"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equivalent" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equivalent fractions</button><button onClick={() => selectLesson("percentage")} aria-pressed={lessonMode === "percentage"} className={`rounded-full px-3 py-2 transition ${lessonMode === "percentage" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Percentages</button><button onClick={() => selectLesson("equations")} aria-pressed={lessonMode === "equations"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equations" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equations</button></div><button onClick={() => setView(view === "progress" ? "lesson" : "progress")} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-[#315bd6] shadow-sm transition hover:bg-[#eef3ff]">{view === "progress" ? "Back to lessons" : "Progress"}</button></div>
+            <div className="flex items-center gap-2"><div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button><button onClick={() => selectLesson("equivalent")} aria-pressed={lessonMode === "equivalent"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equivalent" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equivalent fractions</button><button onClick={() => selectLesson("percentage")} aria-pressed={lessonMode === "percentage"} className={`rounded-full px-3 py-2 transition ${lessonMode === "percentage" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Percentages</button><button onClick={() => selectLesson("equations")} aria-pressed={lessonMode === "equations"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equations" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equations</button></div><button onClick={selectCustomQuestion} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-[#315bd6] shadow-sm transition hover:bg-[#eef3ff]">Try your own question</button><button onClick={() => setView(view === "progress" ? "lesson" : "progress")} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-[#315bd6] shadow-sm transition hover:bg-[#eef3ff]">{view === "progress" ? "Back to lessons" : "Progress"}</button></div>
         </header>
 
-        {view === "progress" ? <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10"><p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Progress</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Recent completed lessons</h1><p className="mt-3 text-lg text-[#65708a]">Your saved progress stays in this browser.</p>{completedLessons.length === 0 ? <div className="mt-8 rounded-3xl bg-[#eef3ff] p-6 text-[#52607a]">Complete a lesson to see it here.</div> : <div className="mt-8 space-y-3">{completedLessons.map((lesson, index) => <div key={`${lesson.completedAt}-${index}`} className="flex flex-col gap-3 rounded-2xl border border-[#dce3f0] p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{getLessonLabel(lesson.lessonType)}</p><p className="mt-1 text-sm text-[#65708a]">{new Date(lesson.completedAt).toLocaleString()}</p></div><div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-[#52607a] sm:grid-cols-4"><span>Attempt accuracy: <strong className="text-[#17233f]">{lesson.accuracy}%</strong></span><span>Attempts: <strong className="text-[#17233f]">{lesson.attempts}</strong></span><span>Hints: <strong className="text-[#17233f]">{lesson.hintsUsed}</strong></span><span>Examples: <strong className="text-[#17233f]">{lesson.examplesUsed}</strong></span></div></div>)}</div>}</section> : <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        {view === "progress" ? <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10"><p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Progress</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Recent completed lessons</h1><p className="mt-3 text-lg text-[#65708a]">Your saved progress stays in this browser.</p>{completedLessons.length === 0 ? <div className="mt-8 rounded-3xl bg-[#eef3ff] p-6 text-[#52607a]">Complete a lesson to see it here.</div> : <div className="mt-8 space-y-3">{completedLessons.map((lesson, index) => <div key={`${lesson.completedAt}-${index}`} className="flex flex-col gap-3 rounded-2xl border border-[#dce3f0] p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{getLessonLabel(lesson.lessonType)}</p><p className="mt-1 text-sm text-[#65708a]">{new Date(lesson.completedAt).toLocaleString()}</p></div><div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-[#52607a] sm:grid-cols-4"><span>Attempt accuracy: <strong className="text-[#17233f]">{lesson.accuracy}%</strong></span><span>Attempts: <strong className="text-[#17233f]">{lesson.attempts}</strong></span><span>Hints: <strong className="text-[#17233f]">{lesson.hintsUsed}</strong></span><span>Examples: <strong className="text-[#17233f]">{lesson.examplesUsed}</strong></span></div></div>)}</div>}</section> : view === "custom" ? <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10"><p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Try your own question</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Practice a question you choose.</h1><p className="mt-3 text-lg text-[#65708a]">Use one supported format and work through it one step at a time.</p><div className="mt-8 rounded-3xl bg-[#eef3ff] p-5 text-[#52607a]"><p className="font-bold">Supported formats</p><p className="mt-2">2/3 + 5/6</p><p>25% of 80</p><p>x - 4 = 9 or 3x = 18</p></div><label className="mt-6 block text-sm font-semibold" htmlFor="custom-question">Your question</label><div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="custom-question" value={customQuestionInput} onChange={(event) => setCustomQuestionInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitCustomQuestion()} placeholder="Example: 25% of 80" className="min-h-12 flex-1 rounded-xl border border-[#cbd5e1] px-4 text-base outline-none focus:ring-2 focus:ring-[#315bd6]"/><button onClick={submitCustomQuestion} className="min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">Use question <ArrowRight className="ml-1 inline" size={17}/></button></div><p className="mt-5 text-sm leading-6 text-[#52607a]">{customMessage}</p>{customQuestion && <div className="mt-6 rounded-3xl border border-[#dce3f0] p-5"><p className="font-bold">Your answer</p><label className="mt-4 block text-sm font-semibold" htmlFor="custom-answer">Enter a number or fraction</label><div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="custom-answer" value={customAnswer} onChange={(event) => setCustomAnswer(event.target.value)} onKeyDown={(event) => event.key === "Enter" && checkCustomAnswer()} placeholder="Your answer" className="min-h-12 flex-1 rounded-xl border border-[#cbd5e1] px-4 text-base outline-none focus:ring-2 focus:ring-[#315bd6]"/><button onClick={checkCustomAnswer} className="min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">Check answer <ArrowRight className="ml-1 inline" size={17}/></button></div></div>}</section> : <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10">
             <p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Practice problem</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{lessonMode === "addition" ? "Let's add fractions." : lessonMode === "simplifying" ? "Let's simplify fractions." : lessonMode === "equivalent" ? "Let's make equivalent fractions." : lessonMode === "percentage" ? "Let's find a percent of a number." : "Let's solve an equation."}</h1>
