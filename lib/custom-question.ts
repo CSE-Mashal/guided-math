@@ -12,6 +12,11 @@ import {
   analyzePercentageAttempt,
   type PercentageAttemptKind,
 } from "./percentages";
+import {
+  analyzeArithmeticAttempt,
+  solveBasicArithmetic,
+  type BasicArithmeticProblem,
+} from "./arithmetic";
 import type { OneStepEquation } from "./equation-problems";
 import type { PercentageProblem } from "./percentage-problems";
 
@@ -28,6 +33,10 @@ export type CustomQuestion =
   | {
       topic: "equation";
       problem: OneStepEquation;
+    }
+  | {
+      topic: "arithmetic";
+      problem: BasicArithmeticProblem;
     };
 
 export type CustomQuestionParseResult =
@@ -41,7 +50,7 @@ export type CustomQuestionAttemptKind =
   | "invalid-answer";
 
 const supportedFormats =
-  "Supported formats: 2/3 + 5/6, 25% of 80, x - 4 = 9, or 3x = 18.";
+  "Supported formats: 2/3 + 5/6, 25% of 80, x - 4 = 9, 3x = 18, 7 x 8, or 12 / 3.";
 
 function parseWholeNumber(value: string): number | null {
   const number = Number(value);
@@ -80,6 +89,36 @@ export function parseCustomQuestion(input: string): CustomQuestionParseResult {
 
     if (percent !== null && number !== null) {
       return { status: "supported", question: { topic: "percentage", problem: { percent, number } } };
+    }
+  }
+
+  const arithmeticMatch = normalizedInput.match(
+    /^([+-]?\d+)\s*([+\-*×xX/÷])\s*([+-]?\d+)$/,
+  );
+
+  if (arithmeticMatch) {
+    const left = parseWholeNumber(arithmeticMatch[1]);
+    const right = parseWholeNumber(arithmeticMatch[3]);
+    const operation = {
+      "+": "add",
+      "-": "subtract",
+      "*": "multiply",
+      "×": "multiply",
+      "x": "multiply",
+      "X": "multiply",
+      "/": "divide",
+      "÷": "divide",
+    }[arithmeticMatch[2]] as BasicArithmeticProblem["operation"];
+
+    if (left !== null && right !== null) {
+      const problem = { left, operation, right } satisfies BasicArithmeticProblem;
+
+      try {
+        solveBasicArithmetic(problem);
+        return { status: "supported", question: { topic: "arithmetic", problem } };
+      } catch {
+        return { status: "unsupported", message: "Division must have a whole-number result. " + supportedFormats };
+      }
     }
   }
 
@@ -152,6 +191,15 @@ export function analyzeCustomQuestionAnswer(
         ? "invalid-answer"
         : "needs-hint";
   }
+
+    if (question.topic === "arithmetic") {
+      const attempt = analyzeArithmeticAttempt(input, question.problem);
+      return attempt === "correct"
+        ? "correct"
+        : attempt === "invalid"
+          ? "invalid-answer"
+          : "needs-hint";
+    }
 
   const attempt: EquationAttemptKind = analyzeEquationAttempt(input, question.problem);
   return attempt === "correct"
