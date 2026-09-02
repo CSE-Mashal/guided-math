@@ -3,6 +3,13 @@ export type Fraction = {
   denominator: number;
 };
 
+export type FractionAttemptKind =
+  | "correct"
+  | "correct-not-simplified"
+  | "added-denominators"
+  | "needs-common-denominator"
+  | "invalid";
+
 function assertInteger(value: number, name: string): void {
   if (!Number.isInteger(value)) {
     throw new RangeError(`${name} must be an integer`);
@@ -97,4 +104,42 @@ export function parseFractionInput(input: string): Fraction | null {
   }
 
   return fraction;
+}
+
+export function analyzeFractionAttempt(
+  input: string,
+  left: Fraction,
+  right: Fraction,
+): FractionAttemptKind {
+  const submittedFraction = parseFractionInput(input);
+
+  if (!submittedFraction) {
+    return "invalid";
+  }
+
+  const correctAnswer = addFractions(left, right);
+
+  if (!areFractionsEquivalent(submittedFraction, correctAnswer)) {
+    const addedDenominators = {
+      numerator: left.numerator + right.numerator,
+      denominator: left.denominator + right.denominator,
+    };
+
+    if (areFractionsEquivalent(submittedFraction, addedDenominators)) {
+      return "added-denominators";
+    }
+
+    return "needs-common-denominator";
+  }
+
+  const simplifiedSubmission = simplifyFraction(submittedFraction);
+
+  if (
+    submittedFraction.numerator !== simplifiedSubmission.numerator ||
+    submittedFraction.denominator !== simplifiedSubmission.denominator
+  ) {
+    return "correct-not-simplified";
+  }
+
+  return "correct";
 }

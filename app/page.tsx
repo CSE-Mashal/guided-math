@@ -22,10 +22,8 @@
 import { useState } from "react";
 import { ArrowRight, BookOpen, Lightbulb, Sparkles } from "lucide-react";
 import {
-  addFractions,
-  areFractionsEquivalent,
+  analyzeFractionAttempt,
   formatFraction,
-  parseFractionInput,
   type Fraction,
 } from "@/lib/fractions";
 import { fractionProblems } from "@/lib/fraction-problems";
@@ -43,20 +41,32 @@ export default function Home() {
   const [showExample, setShowExample] = useState(false);
 
   const currentProblem = fractionProblems[problemIndex];
-  const correctAnswer = addFractions(currentProblem.left, currentProblem.right);
 
   function checkStep() {
-    const submittedFraction = parseFractionInput(answer);
+    const attemptKind = analyzeFractionAttempt(answer, currentProblem.left, currentProblem.right);
 
-    if (!submittedFraction) {
-      setMessage("Enter a fraction in numerator/denominator form. Start by matching the denominators first.");
-    } else if (areFractionsEquivalent(submittedFraction, correctAnswer)) {
-      setMessage("Correct! You found the sum using a common denominator.");
-      setCompletedCount(problemIndex + 1);
-      setIsCorrect(true);
-    } else {
-      setMessage(`Not yet. Rewrite both fractions with a common denominator, then add only the numerators.`);
-      setIsCorrect(false);
+    switch (attemptKind) {
+      case "correct":
+        setMessage("Correct! You found the sum using a common denominator.");
+        setCompletedCount(problemIndex + 1);
+        setIsCorrect(true);
+        break;
+      case "correct-not-simplified":
+        setMessage("That is equivalent. Now simplify the fraction by dividing both parts by their greatest common factor.");
+        setIsCorrect(false);
+        break;
+      case "added-denominators":
+        setMessage("It looks like the denominators were added. Find a common denominator, then add only the numerators.");
+        setIsCorrect(false);
+        break;
+      case "invalid":
+        setMessage("Enter a fraction in numerator/denominator form, then start by matching the denominators.");
+        setIsCorrect(false);
+        break;
+      case "needs-common-denominator":
+        setMessage(`Not yet. Rewrite both fractions with a common denominator, then add only the numerators.`);
+        setIsCorrect(false);
+        break;
     }
   }
 
