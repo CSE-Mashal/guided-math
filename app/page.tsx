@@ -19,7 +19,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, BookOpen, Lightbulb, Sparkles } from "lucide-react";
 import {
   analyzeEquivalentFractionAttempt,
@@ -34,6 +34,11 @@ import {
   fractionProblems,
   simplifyingFractionProblems,
 } from "@/lib/fraction-problems";
+import {
+  loadCompletedLessons,
+  saveCompletedLesson,
+  type CompletedLesson,
+} from "@/lib/lesson-progress";
 
 type LessonMode = "addition" | "simplifying" | "equivalent";
 
@@ -49,7 +54,20 @@ function getEquivalentHint(fraction: Fraction): string {
   return `Multiply both the numerator and denominator by the same number, such as 2 or 3.`;
 }
 
+function getLessonLabel(lessonType: string): string {
+  if (lessonType === "simplifying") {
+    return "Simplify fractions";
+  }
+
+  if (lessonType === "equivalent") {
+    return "Equivalent fractions";
+  }
+
+  return "Add fractions";
+}
+
 export default function Home() {
+  const [view, setView] = useState<"lesson" | "progress">("lesson");
   const [lessonMode, setLessonMode] = useState<LessonMode>("addition");
   const [problemIndex, setProblemIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
@@ -61,6 +79,12 @@ export default function Home() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [isLessonComplete, setIsLessonComplete] = useState(false);
   const [showExample, setShowExample] = useState(false);
+  const [completedLessons, setCompletedLessons] = useState<CompletedLesson[]>([]);
+  const completionSavedRef = useRef(false);
+
+  useEffect(() => {
+    setCompletedLessons(loadCompletedLessons());
+  }, []);
 
   const currentAdditionProblem = fractionProblems[problemIndex];
   const currentSimplificationProblem = simplifyingFractionProblems[problemIndex];
@@ -77,6 +101,18 @@ export default function Home() {
 
     if (problemIndex === activeProblemCount - 1) {
       setIsLessonComplete(true);
+
+      if (!completionSavedRef.current) {
+        completionSavedRef.current = true;
+        setCompletedLessons(saveCompletedLesson({
+          lessonType: lessonMode,
+          accuracy: Math.round(((problemIndex + 1) / (attemptCount + 1)) * 100),
+          attempts: attemptCount + 1,
+          hintsUsed,
+          examplesUsed,
+          completedAt: new Date().toISOString(),
+        }));
+      }
     }
   }
 
@@ -198,6 +234,7 @@ export default function Home() {
   }
 
   function selectLesson(nextLessonMode: LessonMode) {
+    setView("lesson");
     setLessonMode(nextLessonMode);
     setProblemIndex(0);
     setCompletedCount(0);
@@ -208,6 +245,7 @@ export default function Home() {
     setIsCorrect(false);
     setIsLessonComplete(false);
     setShowExample(false);
+    completionSavedRef.current = false;
     setMessage(nextLessonMode === "addition"
       ? getProblemHint(fractionProblems[0])
       : nextLessonMode === "simplifying"
@@ -232,10 +270,10 @@ export default function Home() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3 font-bold"><span className="grid size-10 place-items-center rounded-2xl bg-[#315bd6] text-white"><Sparkles size={20}/></span><span>Math Guide</span></div>
-          <div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button><button onClick={() => selectLesson("equivalent")} aria-pressed={lessonMode === "equivalent"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equivalent" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equivalent fractions</button></div>
+          <div className="flex items-center gap-2"><div className="flex rounded-full bg-white p-1 text-sm font-semibold text-[#315bd6] shadow-sm" role="group" aria-label="Choose a fraction lesson"><button onClick={() => selectLesson("addition")} aria-pressed={lessonMode === "addition"} className={`rounded-full px-3 py-2 transition ${lessonMode === "addition" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Add fractions</button><button onClick={() => selectLesson("simplifying")} aria-pressed={lessonMode === "simplifying"} className={`rounded-full px-3 py-2 transition ${lessonMode === "simplifying" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Simplify fractions</button><button onClick={() => selectLesson("equivalent")} aria-pressed={lessonMode === "equivalent"} className={`rounded-full px-3 py-2 transition ${lessonMode === "equivalent" ? "bg-[#315bd6] text-white" : "hover:bg-[#eef3ff]"}`}>Equivalent fractions</button></div><button onClick={() => setView(view === "progress" ? "lesson" : "progress")} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-[#315bd6] shadow-sm transition hover:bg-[#eef3ff]">{view === "progress" ? "Back to lessons" : "Progress"}</button></div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        {view === "progress" ? <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10"><p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Progress</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Recent completed lessons</h1><p className="mt-3 text-lg text-[#65708a]">Your saved progress stays in this browser.</p>{completedLessons.length === 0 ? <div className="mt-8 rounded-3xl bg-[#eef3ff] p-6 text-[#52607a]">Complete a lesson to see it here.</div> : <div className="mt-8 space-y-3">{completedLessons.map((lesson, index) => <div key={`${lesson.completedAt}-${index}`} className="flex flex-col gap-3 rounded-2xl border border-[#dce3f0] p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{getLessonLabel(lesson.lessonType)}</p><p className="mt-1 text-sm text-[#65708a]">{new Date(lesson.completedAt).toLocaleString()}</p></div><div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-[#52607a] sm:grid-cols-4"><span>Accuracy: <strong className="text-[#17233f]">{lesson.accuracy}%</strong></span><span>Attempts: <strong className="text-[#17233f]">{lesson.attempts}</strong></span><span>Hints: <strong className="text-[#17233f]">{lesson.hintsUsed}</strong></span><span>Examples: <strong className="text-[#17233f]">{lesson.examplesUsed}</strong></span></div></div>)}</div>}</section> : <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6 shadow-[0_18px_55px_rgba(35,57,105,.10)] sm:p-10">
             <p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Practice problem</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{lessonMode === "addition" ? "Let's add fractions." : lessonMode === "simplifying" ? "Let's simplify fractions." : "Let's make equivalent fractions."}</h1>
@@ -259,7 +297,7 @@ export default function Home() {
             <section className="rounded-[2rem] bg-[#17233f] p-6 text-white"><p className="text-sm font-bold uppercase tracking-[.15em] text-[#aebfff]">Learning rule</p><h2 className="mt-3 text-2xl font-bold">We help you think, not copy.</h2><p className="mt-3 leading-6 text-[#d8e0ff]">Math Guide gives hints, examples, and feedback before showing a solution.</p></section>
             <section className="rounded-[2rem] border border-[#dce3f0] bg-white p-6"><p className="font-bold">Today&apos;s progress</p><div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e7ecf5]"><div className="h-full rounded-full bg-[#59b899] transition-all" style={{ width: `${(completedCount / activeProblemCount) * 100}%` }}/></div><p className="mt-3 text-sm text-[#65708a]">{completedCount} of {activeProblemCount} completed</p><div className="mt-6 border-t border-[#e6eaf2] pt-5"><p className="text-sm font-bold">Next up</p><p className="mt-1 text-sm text-[#65708a]">{lessonMode === "addition" ? "Equivalent fractions" : lessonMode === "simplifying" ? "Adding fractions" : "Simplifying fractions"}</p></div></section>
           </aside>
-        </div>
+        </div>}
       </div>
     </main>
   );
