@@ -21,6 +21,17 @@
 
 import { useState } from "react";
 import { ArrowRight, BookOpen, Lightbulb, Sparkles } from "lucide-react";
+import {
+  addFractions,
+  areFractionsEquivalent,
+  formatFraction,
+  parseFractionInput,
+  type Fraction,
+} from "@/lib/fractions";
+
+const leftFraction: Fraction = { numerator: 3, denominator: 4 };
+const rightFraction: Fraction = { numerator: 1, denominator: 2 };
+const correctAnswer = addFractions(leftFraction, rightFraction);
 
 export default function Home() {
   const [answer, setAnswer] = useState("");
@@ -28,13 +39,14 @@ export default function Home() {
   const [showExample, setShowExample] = useState(false);
 
   function checkStep() {
-    const clean = answer.replaceAll(" ", "");
-    if (clean.includes("6/4") || clean.includes("3/2")) {
-      setMessage("Nice work — you found an equivalent fraction. What is 6/4 + 2/4?");
-    } else if (clean.includes("4/6") || clean.includes("7/6")) {
-      setMessage("Close! We need to change 1/2 into fourths first, then add only the numerators.");
-    } else if (!clean) {
+    const submittedFraction = parseFractionInput(answer);
+
+    if (!submittedFraction) {
       setMessage("Try writing one equivalent fraction for 1/2 first.");
+    } else if (areFractionsEquivalent(submittedFraction, correctAnswer)) {
+      setMessage("Correct! You found the sum using a common denominator.");
+    } else if (submittedFraction.denominator === leftFraction.denominator) {
+      setMessage("Good common-denominator step. Now add the numerators over 4.");
     } else {
       setMessage("Good attempt. Hint: multiply 1/2 by 2/2 so its denominator becomes 4.");
     }
@@ -53,12 +65,12 @@ export default function Home() {
             <p className="mb-3 text-sm font-bold uppercase tracking-[.16em] text-[#315bd6]">Practice problem</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Let&apos;s add fractions.</h1>
             <p className="mt-3 text-lg text-[#65708a]">We&apos;ll work through one step at a time.</p>
-            <div className="my-9 rounded-3xl bg-[#eef3ff] px-8 py-9 text-center text-4xl font-bold text-[#17233f]">3/4&nbsp; + &nbsp;1/2</div>
+            <div className="my-9 rounded-3xl bg-[#eef3ff] px-8 py-9 text-center text-4xl font-bold text-[#17233f]">{formatFraction(leftFraction)}&nbsp; + &nbsp;{formatFraction(rightFraction)}</div>
 
             <div className="rounded-3xl border border-[#dce3f0] p-5">
               <div className="flex gap-3"><span className="mt-0.5 text-[#e5a314]"><Lightbulb size={23}/></span><div><p className="font-bold">Your next step</p><p className="mt-1 leading-6 text-[#52607a]">{message}</p></div></div>
               <label className="mt-5 block text-sm font-semibold" htmlFor="step">Show what you would do next</label>
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="step" value={answer} onChange={(e) => setAnswer(e.target.value)} onKeyDown={(e) => e.key === "Enter" && checkStep()} placeholder="Example: 1/2 = 2/4" className="min-h-12 flex-1 rounded-xl border border-[#cbd5e1] px-4 text-base outline-none focus:ring-2 focus:ring-[#315bd6]"/><button onClick={checkStep} className="min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">Check step <ArrowRight className="ml-1 inline" size={17}/></button></div>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="step" value={answer} onChange={(e) => setAnswer(e.target.value)} onKeyDown={(e) => e.key === "Enter" && checkStep()} placeholder="Example: 5/4" className="min-h-12 flex-1 rounded-xl border border-[#cbd5e1] px-4 text-base outline-none focus:ring-2 focus:ring-[#315bd6]"/><button onClick={checkStep} className="min-h-12 rounded-xl bg-[#315bd6] px-5 font-bold text-white transition hover:bg-[#244bbd]">Check step <ArrowRight className="ml-1 inline" size={17}/></button></div>
             </div>
 
             <button onClick={() => setShowExample(!showExample)} className="mt-5 flex items-center gap-2 text-sm font-bold text-[#315bd6]"><BookOpen size={18}/>{showExample ? "Hide similar example" : "Show a similar example"}</button>
