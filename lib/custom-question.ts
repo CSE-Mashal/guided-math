@@ -212,3 +212,87 @@ export function analyzeCustomQuestionAnswer(
 export function isEquivalentFraction(left: Fraction, right: Fraction): boolean {
   return areFractionsEquivalent(left, right);
 }
+
+export function serializeCustomQuestion(question: CustomQuestion): string {
+  if (question.topic === "fraction-addition") {
+    return `${question.left.numerator}/${question.left.denominator} + ${question.right.numerator}/${question.right.denominator}`;
+  }
+
+  if (question.topic === "percentage") {
+    return `${question.problem.percent}% of ${question.problem.number}`;
+  }
+
+  if (question.topic === "arithmetic") {
+    const symbol = {
+      add: "+",
+      subtract: "-",
+      multiply: "×",
+      divide: "÷",
+    }[question.problem.operation];
+
+    return `${question.problem.left} ${symbol} ${question.problem.right}`;
+  }
+
+  const symbol = {
+    add: "+",
+    subtract: "-",
+    multiply: "×",
+    divide: "÷",
+  }[question.problem.operation];
+
+  if (
+    question.problem.operation === "multiply" ||
+    question.problem.operation === "divide"
+  ) {
+    return question.problem.operation === "multiply"
+      ? `${question.problem.value}x = ${question.problem.result}`
+      : `x ÷ ${question.problem.value} = ${question.problem.result}`;
+  }
+
+  return `x ${symbol} ${question.problem.value} = ${question.problem.result}`;
+}
+
+export function getCustomQuestionAnswerText(question: CustomQuestion): string {
+  if (question.topic === "fraction-addition") {
+    const numerator =
+      question.left.numerator * question.right.denominator +
+      question.right.numerator * question.left.denominator;
+    const denominator =
+      question.left.denominator * question.right.denominator;
+
+    const greatestCommonDivisor = (first: number, second: number): number => {
+      let left = Math.abs(first);
+      let right = Math.abs(second);
+
+      while (right !== 0) {
+        [left, right] = [right, left % right];
+      }
+
+      return left;
+    };
+
+    const divisor = greatestCommonDivisor(numerator, denominator);
+    const simplifiedNumerator = numerator / divisor;
+    const simplifiedDenominator = denominator / divisor;
+
+    return simplifiedDenominator === 1
+      ? String(simplifiedNumerator)
+      : `${simplifiedNumerator}/${simplifiedDenominator}`;
+  }
+
+  if (question.topic === "percentage") {
+    return String((question.problem.percent / 100) * question.problem.number);
+  }
+
+  if (question.topic === "arithmetic") {
+    return String(solveBasicArithmetic(question.problem));
+  }
+
+  const { operation, value, result } = question.problem;
+
+  if (operation === "add") return String(result - value);
+  if (operation === "subtract") return String(result + value);
+  if (operation === "multiply") return String(result / value);
+
+  return String(result * value);
+}
